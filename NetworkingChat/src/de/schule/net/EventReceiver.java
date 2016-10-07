@@ -1,4 +1,4 @@
-package de.benedikt;
+package de.schule.net;
 
 public interface EventReceiver {
 	void OnMessageReceived(ChatMessage message);

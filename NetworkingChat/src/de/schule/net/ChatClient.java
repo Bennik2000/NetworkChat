@@ -1,4 +1,4 @@
-package de.benedikt;
+package de.schule.net;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;

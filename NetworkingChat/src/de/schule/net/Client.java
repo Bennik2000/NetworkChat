@@ -1,4 +1,4 @@
-package de.benedikt;
+package de.schule.net;
 
 import java.util.Scanner;
 

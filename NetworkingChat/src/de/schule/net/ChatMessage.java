@@ -1,4 +1,4 @@
-package de.benedikt;
+package de.schule.net;
 
 public class ChatMessage {
 	private String mMessage;
