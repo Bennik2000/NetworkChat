@@ -12,7 +12,7 @@ public class Client implements EventReceiver {
 
 	@Override
 	public void OnMessageReceived(ChatMessage message) {
-		System.out.println("Received message: " + message.getMessage());
+		System.out.println("Received message from " + message.getUsername() + ": " + message.getMessage());
 	}
 
 	@Override
@@ -33,7 +33,6 @@ public class Client implements EventReceiver {
 			else{
 				ChatMessage chat = new ChatMessage();
 				chat.setMessage(message);
-			
 				mClient.sendMessage(chat);
 			}
 		}
@@ -46,7 +45,11 @@ public class Client implements EventReceiver {
 	
 	
 	public static void main(String[] args) {
-		ChatClient client = new ChatClient("localhost");
+		Scanner s = new Scanner(System.in);
+		System.out.print("Benutzername: ");
+		
+		
+		ChatClient client = new ChatClient("localhost", s.nextLine());
 		
 		client.registerEventReceiver(new Client(client));
 		

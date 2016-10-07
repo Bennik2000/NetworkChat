@@ -3,7 +3,6 @@ package de.schule.net;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,7 +23,6 @@ public class ChatServer implements ClientEventReceiver, Runnable {
 	}
 	
 	
-
 	@Override
 	public void run() {
 		try {
@@ -95,7 +93,7 @@ public class ChatServer implements ClientEventReceiver, Runnable {
 
 	@Override
 	public void OnMessageReceived(ChatMessage message, ChatClientHandler connection) {
-		System.out.println("Message received: " + message.getMessage());
+		System.out.println("Message received from "+ message.getUsername() + ": " + message.getMessage());
 		
 		// Send the received message to all the other clients
 		for (ChatClientHandler chatClientConnection : mClientConnections) {

@@ -5,10 +5,13 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import com.google.gson.*;
 
 public class ChatClientHandler implements Runnable {
 	
@@ -29,9 +32,14 @@ public class ChatClientHandler implements Runnable {
 	private BufferedWriter mBufferedWriter;
 	
 	/*
-	 * The Ip address of the client
+	 * The IP address of the client
 	 * */
 	private String mClientIp;
+	
+	/*
+	 * The user name of the client
+	 * */
+	private String mUsername;
 	
 	/*
 	 * The thread which handles the client
@@ -125,7 +133,7 @@ public class ChatClientHandler implements Runnable {
 	}
 
 	/*
-	 * Starts the listening for incomming messages
+	 * Starts the listening for incoming messages
 	 * */
 	public void startListeningForMessages() {
 		mHandlerThread = new Thread(this);
@@ -136,9 +144,24 @@ public class ChatClientHandler implements Runnable {
 	 * Sends a message to the client
 	 * */
 	public void sendMessage(ChatMessage message) {
-		sendMessage(message.getMessage());
+		Map<String, String> properties = new HashMap<String, String>();
+		properties.put("message", message.getMessage());
+		properties.put("username", message.getUsername());
+		
+		sendMessage("message", properties);
 	}
 
+	public void sendMessage(String command, Map<String, String> parameters){
+		JsonObject innerObject = new JsonObject();
+		innerObject.addProperty("command", command);
+
+		for (String key : parameters.keySet()) {
+			innerObject.addProperty(key, parameters.get(key));
+		}
+		
+		sendMessage(new Gson().toJson(innerObject));
+	}
+	
 	/*
 	 * Sends a string to the client
 	 * */
@@ -199,29 +222,62 @@ public class ChatClientHandler implements Runnable {
 	 * Processes messages from the client
 	 * */
 	private void processMessage(String message){
-		String formatted = message.trim();
 		
-		// Check if the message is a command
-		if(formatted.startsWith("/")){
-			
-			// Select the action based on the command
-			switch(formatted.substring(1, formatted.length())){
-				case "members":
-					sendMessage(String.valueOf(mChatServer.getClientCount()));
-					break;
-				case "ping":
-					sendMessage("pong!");
-					break;
-				}
-		}
-		else{
-			
-			// Route the message to the server
+		Gson gson = new Gson();
+		
+		JsonObject jsonObject = gson.fromJson(message, JsonObject.class);
+		JsonElement commandElement = jsonObject.get("command");
+		
+		String command = commandElement.getAsString();
+		
+		System.out.println(message);
+		
+		switch (command) {
+		case "message":
+			JsonElement messageElement = jsonObject.get("message");
+		
 			ChatMessage chatMessage = new ChatMessage();
-			chatMessage.setMessage(message);
-
+			
+			chatMessage.setMessage(messageElement.getAsString());
+			chatMessage.setUsername(mUsername);
+			
 			onMessageReceived(chatMessage);
+			
+			break;
+
+		case "username":
+			JsonElement nameElement = jsonObject.get("name");
+			mUsername = nameElement.getAsString(); 
+			
+			break;
+			
+		default:
+			break;
 		}
+		
+		//String formatted = message.trim();
+		//
+		//// Check if the message is a command
+		//if(formatted.startsWith("/")){
+		//	
+		//	// Select the action based on the command
+		//	switch(formatted.substring(1, formatted.length())){
+		//		case "members":
+		//			sendMessage(String.valueOf(mChatServer.getClientCount()));
+		//			break;
+		//		case "ping":
+		//			sendMessage("pong!");
+		//			break;
+		//		}
+		//}
+		//else{
+		//	
+		//	// Route the message to the server
+		//	ChatMessage chatMessage = new ChatMessage();
+		//	chatMessage.setMessage(message);
+        //
+		//	onMessageReceived(chatMessage);
+		//}
 	}
 
 	public void registerEventReceiver(ClientEventReceiver receiver) {
