@@ -63,15 +63,15 @@ public class ChatClient implements Runnable {
 			// Connect to the server
 			mSocket = new Socket(mIp, mPort);
 
+			// Grab the I/O streams
 			mBufferedWriter = new BufferedWriter(new OutputStreamWriter(mSocket.getOutputStream()));
 			mBufferedReader = new BufferedReader(new InputStreamReader(mSocket.getInputStream()));
 
-			
 			mConnected = true;
 
+			// Start the handle thread
 			mHandlerThread  = new Thread(this);
 			mHandlerThread.start();
-			
 
 			onConnected();
 		}
@@ -85,6 +85,7 @@ public class ChatClient implements Runnable {
 
 		mConnected = false;
 
+		// Try to close the socket
 		if (mSocket != null) {
 			try {
 				mSocket.close();
@@ -95,6 +96,7 @@ public class ChatClient implements Runnable {
 			mSocket = null;
 		}
 
+		// Try to close the BufferedReader
 		if (mBufferedReader != null) {
 			try {
 				mBufferedReader.close();
@@ -105,6 +107,7 @@ public class ChatClient implements Runnable {
 			mBufferedReader = null;
 		}
 
+		// Try to close the BufferedWriter
 		if (mBufferedWriter != null) {
 			try {
 				mBufferedWriter.close();
@@ -115,6 +118,7 @@ public class ChatClient implements Runnable {
 			mBufferedWriter = null;
 		}
 
+		// Try to interrupt the HandlerThread
 		if (mHandlerThread != null) {
 			if (!mHandlerThread.isInterrupted()) {
 				mHandlerThread.interrupt();
@@ -129,34 +133,52 @@ public class ChatClient implements Runnable {
 		try {
 			String receivedLine = null;
 
+			// Receive all lines
 			while ((receivedLine = mBufferedReader.readLine()) != null && mConnected) {
+				
+				// Prrocess the received line
 				ChatMessage message = new ChatMessage();
 				message.setMessage(receivedLine);
 
 				onMessageReceived(message);
 			}
 
+			// Close the connection when the loop finished
 			closeConnection();
 
 		} catch (IOException e) {
+			
+			// Close the connection when an exception was thrown
 			closeConnection();
 		}
 
+		// Notify that the client disconnected
 		onDisconnected();
 	}
 
+	/*
+	 * Sends a message to the server
+	 * */
 	public void sendMessage(ChatMessage message){
 		sendMessage(message.getMessage());
 	}
 	
+	/*
+	 * Sends a string to the server
+	 * */
 	private void sendMessage(String message){
 		if (!mConnected)
 			return;
 
 		
 		try {
+			// Write a string without newline
 			mBufferedWriter.write(message.replace("\n", ""));
+			
+			// Write a newline
 			mBufferedWriter.write("\n");
+			
+			// Flush to ensure that the line was sent
 			mBufferedWriter.flush();
 		} catch (IOException e) {
 		}
