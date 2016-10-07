@@ -5,7 +5,6 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -14,24 +13,54 @@ import java.util.List;
 public class ChatClient implements Runnable {
 	private static final int mPort = 25552;
 
+	/*
+	 * Contains the ip of the server
+	 * */
 	private String mIp;
+	
+	/*
+	 * Contains the socked connected to the server
+	 * */
 	private Socket mSocket;
+	
+	/*
+	 * Contains the BufferedWriter connected to the server
+	 * */
 	private BufferedWriter mBufferedWriter;
+
+	/*
+	 * Contains the BufferedReader connected to the server
+	 * */
 	private BufferedReader mBufferedReader;
+	
+	/*
+	 * The handler thread which handles the incoming messages
+	 * */
 	private Thread mHandlerThread;
 	
-	
+	/*
+	 * Indicates whether the client is connected
+	 * */
 	private boolean mConnected;
 	
+	/*
+	 * Contains the registered receiver
+	 * */
 	private List<EventReceiver> mMessageReceivers;
+	
 	
 	public ChatClient(String ip){
 		mIp = ip;
 		mMessageReceivers = new ArrayList<>();
 	}
 	
+	/*
+	 * Connect to a server
+	 * */
 	public void connectToServer(){
 		try {
+			
+			// Connect to the server
 			mSocket = new Socket(mIp, mPort);
 
 			mBufferedWriter = new BufferedWriter(new OutputStreamWriter(mSocket.getOutputStream()));
