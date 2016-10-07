@@ -1,6 +1,7 @@
 package de.schule.net;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -10,15 +11,46 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ChatClientHandler implements Runnable {
+	
+	/*
+	 * Contains the socket connected to the client
+	 * */
 	private Socket mSocket;
+	
+	/*
+	 * BufferedReader connected to the client
+	 * */
 	private BufferedReader mBufferedReader;
-	private PrintWriter mPrintWriter;
+	
+
+	/*
+	 * BufferedReader connected to the client
+	 * */
+	private BufferedWriter mBufferedWriter;
+	
+	/*
+	 * The Ip address of the client
+	 * */
 	private String mClientIp;
+	
+	/*
+	 * The thread which handles the client
+	 * */
 	private Thread mHandlerThread;
+	
+	/*
+	 * The ChatServer instance
+	 * */
 	private ChatServer mChatServer;
 
+	/*
+	 * Contains all registered event receivers
+	 * */
 	private List<ClientEventReceiver> mEventReceivers;
 
+	/*
+	 * Indicates whether the client is connected
+	 * */
 	private boolean mConnected;
 
 	public ChatClientHandler(String username, ChatServer server) {
@@ -26,21 +58,30 @@ public class ChatClientHandler implements Runnable {
 		mChatServer = server;
 	}
 
+	/*
+	 * Setup the connection
+	 * */
 	public void setupConnection(Socket socket) throws IOException {
 		mSocket = socket;
 		mClientIp = mSocket.getRemoteSocketAddress().toString();
+		
+		// Grab the I/O streams
 		mBufferedReader = new BufferedReader(new InputStreamReader(mSocket.getInputStream()));
-		mPrintWriter = new PrintWriter(new OutputStreamWriter(mSocket.getOutputStream()));
+		mBufferedWriter = new BufferedWriter(new OutputStreamWriter(mSocket.getOutputStream()));
 
 		mConnected = true;
 	}
 
+	/*
+	 * Close the connection
+	 * */
 	public void closeConnection() {
 		if (!mConnected)
 			return;
 
 		mConnected = false;
 
+		// Try to close the socket 
 		if (mSocket != null) {
 			try {
 				mSocket.close();
@@ -51,6 +92,7 @@ public class ChatClientHandler implements Runnable {
 			mSocket = null;
 		}
 
+		// Try to close the buffered reader
 		if (mBufferedReader != null) {
 			try {
 				mBufferedReader.close();
@@ -61,16 +103,18 @@ public class ChatClientHandler implements Runnable {
 			mBufferedReader = null;
 		}
 
-		if (mPrintWriter != null) {
+		// Try to close the buffered writer
+		if (mBufferedWriter != null) {
 			try {
-				mPrintWriter.close();
+				mBufferedWriter.close();
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
 
-			mPrintWriter = null;
+			mBufferedWriter = null;
 		}
 
+		// Try to interrupt the handler thread
 		if (mHandlerThread != null) {
 			if (!mHandlerThread.isInterrupted()) {
 				mHandlerThread.interrupt();
@@ -80,21 +124,38 @@ public class ChatClientHandler implements Runnable {
 		}
 	}
 
+	/*
+	 * Starts the listening for incomming messages
+	 * */
 	public void startListeningForMessages() {
 		mHandlerThread = new Thread(this);
 		mHandlerThread.start();
 	}
 
+	/*
+	 * Sends a message to the client
+	 * */
 	public void sendMessage(ChatMessage message) {
 		sendMessage(message.getMessage());
 	}
 
+	/*
+	 * Sends a string to the client
+	 * */
 	private void sendMessage(String string) {
 		if (!mConnected)
 			return;
 
-		mPrintWriter.println(string);
-		mPrintWriter.flush();
+		try {
+			// Send a string without newline
+			mBufferedWriter.write(string.replace("\n", ""));
+			
+			// Send a newline
+			mBufferedWriter.write("\n");
+			
+			// Flush the writer to ensure that the message was sent
+			mBufferedWriter.flush();
+		} catch (IOException e) { }
 	}
 
 	private void onMessageReceived(ChatMessage message) {
@@ -111,35 +172,51 @@ public class ChatClientHandler implements Runnable {
 
 	@Override
 	public void run() {
-		try {
+		try {			
 			String receivedLine = null;
 
+			// Read all lines which come in
 			while ((receivedLine = mBufferedReader.readLine()) != null && mConnected) {
+				
+				// Process the received line
 				processMessage(receivedLine);
 			}
 
+			// When the loop finishes we can close the connection
 			closeConnection();
 
 		} catch (IOException e) {
+			
+			// When an exception was thrown we close the connection
 			closeConnection();
 		}
 
+		// Notify that the client was disconnected
 		onClientDisconnected();
 	}
 	
+	/*
+	 * Processes messages from the client
+	 * */
 	private void processMessage(String message){
 		String formatted = message.trim();
 		
+		// Check if the message is a command
 		if(formatted.startsWith("/")){
+			
+			// Select the action based on the command
 			switch(formatted.substring(1, formatted.length())){
-			case "members":
-				
-				sendMessage(String.valueOf(mChatServer.getMemberCount()));
-				
-				break;
-			}
+				case "members":
+					sendMessage(String.valueOf(mChatServer.getClientCount()));
+					break;
+				case "ping":
+					sendMessage("pong!");
+					break;
+				}
 		}
 		else{
+			
+			// Route the message to the server
 			ChatMessage chatMessage = new ChatMessage();
 			chatMessage.setMessage(message);
 
