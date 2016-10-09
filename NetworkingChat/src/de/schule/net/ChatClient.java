@@ -16,6 +16,8 @@ public class ChatClient implements EndpointEventReceiver{
 	public ChatClient(){
 		mPacketHandler = new JsonPacketHandler();
 		mPacketHandler.registerCommandHandler(new MessageCommandHandler());
+		mPacketHandler.registerCommandHandler(new JoinCommandHandler());
+		mPacketHandler.registerCommandHandler(new LeaveCommandHandler());
 		
 		mClientEventReceivers = new ArrayList<>();
 	}

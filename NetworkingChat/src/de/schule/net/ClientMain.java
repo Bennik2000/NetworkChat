@@ -73,7 +73,9 @@ public class ClientMain implements Runnable, ClientEventReceiver {
 		try {
 			
 			while((line = mBufferedReader.readLine()) != null){
-				mChatClient.sendMessage(line);
+				if(mChatClient != null){
+					mChatClient.sendMessage(line);
+				}
 			}
 			
 		} catch (IOException e) {

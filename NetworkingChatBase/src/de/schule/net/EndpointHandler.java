@@ -30,7 +30,7 @@ public class EndpointHandler implements Runnable{
 	
 	public void setupEndpointConnection(Socket socket) throws IOException{
 		mEndpointSocket = socket;
-		mEndpointIP = mEndpointSocket.getRemoteSocketAddress().toString().substring(1);
+		mEndpointIP = mEndpointSocket.getRemoteSocketAddress().toString();
 		
 		// Grab the I/O streams
 		mBufferedReader = new BufferedReader(new InputStreamReader(mEndpointSocket.getInputStream(), "UTF-8"));
@@ -170,7 +170,9 @@ public class EndpointHandler implements Runnable{
 	}
 	
 	private void sendPacket(String packet){
-		try {	
+		if(!mConnected) return;
+		
+		try {
 			// Send the packet
 			mBufferedWriter.write(packet);
 			mBufferedWriter.newLine();

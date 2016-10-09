@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -114,8 +115,6 @@ public class ChatServer implements EndpointEventReceiver, Runnable {
 	public void onEndpointConnected(EndpointHandler handler) {
 		// Print a log message
 		System.out.println("Connection from " + handler.getEndpointIp());
-		
-		// TODO: Distribute a join message
 	}
 
 	@Override
@@ -128,7 +127,14 @@ public class ChatServer implements EndpointEventReceiver, Runnable {
 			mClientConnections.remove(handler);
 		}
 		
-		// TODO: Distribute a leave message
+		if (ClientEndpointHandler.class.isInstance(handler)){
+			ClientEndpointHandler client = (ClientEndpointHandler) handler;
+
+			Map<String, String> parameters = new HashMap<String, String>();
+			parameters.put("username", client.getUsername());	
+			
+			distributePacket("leave", parameters, handler);
+		}
 	}
 
 	@Override

@@ -1,5 +1,6 @@
 package de.schule.net;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import com.google.gson.JsonObject;
@@ -27,6 +28,12 @@ public class UsernameCommandHandler implements CommandHandler {
 			
 			// Print a log message
 			System.out.println(endpoint.getEndpointIp() + " identifies as " + client.getUsername());
+			
+
+			Map<String, String> parameters = new HashMap<String, String>();
+			parameters.put("username", client.getUsername());	
+			
+			client.getServer().distributePacket("join", parameters, endpoint);
 		}
 		
 		return null;
