@@ -3,39 +3,33 @@ package de.schule.net;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-public class ChatServer implements ClientEventReceiver, Runnable {
+/*
+ * The chat server implementation
+ * */
+public class ChatServer implements EndpointEventReceiver, Runnable {
 	public static final int Port = 25552;
 	
-	// Indicates whether the server is listening for connections
 	private boolean mIsListening;
 	
-	// Contains the listening socket
 	private ServerSocket mServerSocket;
 	
-	// Contains all connected clients
-	private List<ChatClientHandler> mClientConnections;
+	private List<EndpointHandler> mClientConnections;
+	private JsonPacketHandler mPacketHandler; 
+	
 	
 	public ChatServer(){
+		mPacketHandler = new JsonPacketHandler();
+		mPacketHandler.registerCommandHandler(new MessageCommandHandler());
+		mPacketHandler.registerCommandHandler(new UsernameCommandHandler());
+		
 		mClientConnections = new ArrayList<>();
 	}
 	
-	
-
-	@Override
-	public void run() {
-		try {
-			// Start the server
-			listenForConnections();
-		} catch (IOException e) {
-			
-			// When an exception was thrown we shutdown the server
-			shutdownServer();
-		}
-	}
 	
 	/*
 	 * Listens for client connections
@@ -50,14 +44,11 @@ public class ChatServer implements ClientEventReceiver, Runnable {
 			Socket clientSocket = mServerSocket.accept();
 			
 			
-			System.out.println("Connection from " + clientSocket.getRemoteSocketAddress().toString());
-			
 			// Setup a new client handler to handle the client
-			ChatClientHandler connection = new ChatClientHandler(clientSocket.getRemoteSocketAddress().toString(), this);
+			EndpointHandler connection = new ClientEndpointHandler(mPacketHandler, this);
 			
 			connection.registerEventReceiver(this);
-			connection.setupConnection(clientSocket);
-			connection.startListeningForMessages();
+			connection.setupEndpointConnection(clientSocket);
 			
 			// Add the the list of connected clients
 			mClientConnections.add(connection);
@@ -72,7 +63,7 @@ public class ChatServer implements ClientEventReceiver, Runnable {
 		
 		// Close all client connections
 		for (int i = 0; i < mClientConnections.size(); i++) {
-			mClientConnections.get(i).closeConnection();
+			mClientConnections.get(i).disconnectFromEndpoint();
 		}
 		
 		
@@ -86,6 +77,7 @@ public class ChatServer implements ClientEventReceiver, Runnable {
 		}
 	}
 
+	
 	/*
 	 * Counts the connected clients
 	 * */
@@ -93,25 +85,60 @@ public class ChatServer implements ClientEventReceiver, Runnable {
 		return mClientConnections.size();
 	}
 
-	@Override
-	public void OnMessageReceived(ChatMessage message, ChatClientHandler connection) {
-		System.out.println("Message received: " + message.getMessage());
-		
-		// Send the received message to all the other clients
-		for (ChatClientHandler chatClientConnection : mClientConnections) {
-			if(chatClientConnection != connection){
-				chatClientConnection.sendMessage(message);
+	
+	/*
+	 * Sends a packet to all EndpointHandlers excluding the sourceEndpoint
+	 * */
+	public void distributePacket(String command, Map<String, String> parameters, EndpointHandler sourceEndpoint){
+		for (EndpointHandler endpointHandler : mClientConnections) {
+			if(endpointHandler != sourceEndpoint){
+				endpointHandler.sendPacket(command, parameters);
 			}
+		}
+	}
+	
+
+	@Override
+	public void run() {
+		try {
+			// Start the server
+			listenForConnections();
+		} catch (IOException e) {
+			
+			// When an exception was thrown we shutdown the server
+			shutdownServer();
+		}
+	}
+	
+
+	@Override
+	public void onEndpointConnected(EndpointHandler handler) {
+		// Print a log message
+		System.out.println("Connection from " + handler.getEndpointIp());
+	}
+
+	@Override
+	public void onEndpointDisconnected(EndpointHandler handler) {
+		// Print a log message 
+		System.out.println("Client with IP " + handler.getEndpointIp() + " disconnected");
+		
+		// Remove the disconnected client
+		if(mIsListening){
+			mClientConnections.remove(handler);
+		}
+		
+		if (ClientEndpointHandler.class.isInstance(handler)){
+			ClientEndpointHandler client = (ClientEndpointHandler) handler;
+
+			Map<String, String> parameters = new HashMap<String, String>();
+			parameters.put("username", client.getUsername());	
+			
+			distributePacket("leave", parameters, handler);
 		}
 	}
 
 	@Override
-	public void OnClientDisconnected(ChatClientHandler connection) {
-		System.out.println("Client with IP " + connection.getClientIp() + " disconnected");
+	public void onDataReceived(EndpointHandler handler, String rawData) {
 		
-		// Remove the disconnected client
-		if(mIsListening){
-			mClientConnections.remove(connection);
-		}
 	}
 }

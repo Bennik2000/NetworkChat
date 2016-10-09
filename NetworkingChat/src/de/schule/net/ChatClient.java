@@ -1,212 +1,126 @@
 package de.schule.net;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-public class ChatClient implements Runnable {
-	private static final int mPort = 25552;
-
-	/*
-	 * Contains the ip of the server
-	 * */
-	private String mIp;
+public class ChatClient implements EndpointEventReceiver{
+	private List<ClientEventReceiver> mClientEventReceivers;
+	private EndpointHandler mEndpointHandler;
+	private JsonPacketHandler mPacketHandler;
 	
-	/*
-	 * Contains the socked connected to the server
-	 * */
-	private Socket mSocket;
-	
-	/*
-	 * Contains the BufferedWriter connected to the server
-	 * */
-	private BufferedWriter mBufferedWriter;
-
-	/*
-	 * Contains the BufferedReader connected to the server
-	 * */
-	private BufferedReader mBufferedReader;
-	
-	/*
-	 * The handler thread which handles the incoming messages
-	 * */
-	private Thread mHandlerThread;
-	
-	/*
-	 * Indicates whether the client is connected
-	 * */
-	private boolean mConnected;
-	
-	/*
-	 * Contains the registered receiver
-	 * */
-	private List<EventReceiver> mMessageReceivers;
-	
-	
-	public ChatClient(String ip){
-		mIp = ip;
-		mMessageReceivers = new ArrayList<>();
+	public ChatClient(){
+		mPacketHandler = new JsonPacketHandler();
+		mPacketHandler.registerCommandHandler(new MessageCommandHandler(this));
+		mPacketHandler.registerCommandHandler(new JoinCommandHandler(this));
+		mPacketHandler.registerCommandHandler(new LeaveCommandHandler(this));
+		
+		mClientEventReceivers = new ArrayList<>();
 	}
 	
-	/*
-	 * Connect to a server
-	 * */
-	public void connectToServer(){
-		try {
-			
-			// Connect to the server
-			mSocket = new Socket(mIp, mPort);
-
-			// Grab the I/O streams
-			mBufferedWriter = new BufferedWriter(new OutputStreamWriter(mSocket.getOutputStream()));
-			mBufferedReader = new BufferedReader(new InputStreamReader(mSocket.getInputStream()));
-
-			mConnected = true;
-
-			// Start the handle thread
-			mHandlerThread  = new Thread(this);
-			mHandlerThread.start();
-
-			onConnected();
-		}
-		catch (UnknownHostException e) { } 
-		catch (IOException e) { }
+	
+	public void connectToServer(String ip, int port) throws UnknownHostException, IOException{
+		// Connect to the server
+		Socket socket = new Socket(ip, port);
+		
+		// Create a new EndpointHandler
+		mEndpointHandler = new EndpointHandler(mPacketHandler);
+		
+		// Setup the EndpointHandler
+		mEndpointHandler.registerEventReceiver(this);
+		mEndpointHandler.setupEndpointConnection(socket);
 	}
 	
-	public void closeConnection() {
-		if (!mConnected)
+	public void disconnectFromServer(){
+		mEndpointHandler.disconnectFromEndpoint();
+	}
+	
+	
+	public void sendMessage(String message){
+		if(message.trim().isEmpty()){
 			return;
-
-		mConnected = false;
-
-		// Try to close the socket
-		if (mSocket != null) {
-			try {
-				mSocket.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-
-			mSocket = null;
 		}
-
-		// Try to close the BufferedReader
-		if (mBufferedReader != null) {
-			try {
-				mBufferedReader.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-
-			mBufferedReader = null;
+		
+		if(message.equals("/q")){
+			disconnectFromServer();
+			return;
 		}
+		
+		// Create the parameters
+		Map<String, String> parameters = new HashMap<String, String>();
+		parameters.put("message", message);
+		
+		// Send the packet
+		mEndpointHandler.sendPacket("message", parameters);
+	}
 
-		// Try to close the BufferedWriter
-		if (mBufferedWriter != null) {
-			try {
-				mBufferedWriter.close();
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
+	
+	public String getServerIp(){
+		return mEndpointHandler.getEndpointIp();
+	}
 
-			mBufferedWriter = null;
+	public boolean isConnected(){
+		return mEndpointHandler.isConnected();
+	}
+	
+	public void setUsername(String username){
+		
+		// Create the parameters
+		Map<String, String> parameters = new HashMap<String, String>();
+		parameters.put("username", username);
+		
+		// Send the packet
+		mEndpointHandler.sendPacket("username", parameters);
+	}
+	
+	
+	public void registerClientEventReceiver(ClientEventReceiver clientEventReceiver){
+		mClientEventReceivers.add(clientEventReceiver);
+	}
+	
+	public void unregisterClientEventReceiver(ClientEventReceiver clientEventReceiver){
+		mClientEventReceivers.remove(clientEventReceiver);
+	}
+	
+	
+	public void onUserJoined(String user){
+		for (ClientEventReceiver clientEventReceiver : mClientEventReceivers) {
+			clientEventReceiver.onUserJoined(this, user);
 		}
-
-		// Try to interrupt the HandlerThread
-		if (mHandlerThread != null) {
-			if (!mHandlerThread.isInterrupted()) {
-				mHandlerThread.interrupt();
-			}
-
-			mHandlerThread = null;
+	}
+	
+	public void onUserLeft(String user){
+		for (ClientEventReceiver clientEventReceiver : mClientEventReceivers) {
+			clientEventReceiver.onUserLeft(this, user);
+		}
+	}
+	
+	public void onMessageReceived(String message, String user){
+		for (ClientEventReceiver clientEventReceiver : mClientEventReceivers) {
+			clientEventReceiver.onMessageReceived(this, message, user);
 		}
 	}
 	
 	@Override
-	public void run() {
-		try {
-			String receivedLine = null;
-
-			// Receive all lines
-			while ((receivedLine = mBufferedReader.readLine()) != null && mConnected) {
-				
-				// Prrocess the received line
-				ChatMessage message = new ChatMessage();
-				message.setMessage(receivedLine);
-
-				onMessageReceived(message);
-			}
-
-			// Close the connection when the loop finished
-			closeConnection();
-
-		} catch (IOException e) {
-			
-			// Close the connection when an exception was thrown
-			closeConnection();
+	public void onEndpointConnected(EndpointHandler handler) {
+		for (ClientEventReceiver clientEventReceiver : mClientEventReceivers) {
+			clientEventReceiver.onConnected(this);
 		}
-
-		// Notify that the client disconnected
-		onDisconnected();
 	}
 
-	/*
-	 * Sends a message to the server
-	 * */
-	public void sendMessage(ChatMessage message){
-		sendMessage(message.getMessage());
+	@Override
+	public void onEndpointDisconnected(EndpointHandler handler) {
+		for (ClientEventReceiver clientEventReceiver : mClientEventReceivers) {
+			clientEventReceiver.onDisconnected(this);
+		}
 	}
-	
-	/*
-	 * Sends a string to the server
-	 * */
-	private void sendMessage(String message){
-		if (!mConnected)
-			return;
 
+	@Override
+	public void onDataReceived(EndpointHandler handler, String rawData) {
 		
-		try {
-			// Write a string without newline
-			mBufferedWriter.write(message.replace("\n", ""));
-			
-			// Write a newline
-			mBufferedWriter.write("\n");
-			
-			// Flush to ensure that the line was sent
-			mBufferedWriter.flush();
-		} catch (IOException e) {
-		}
-	}
-	
-	
-	public void registerEventReceiver(EventReceiver messageReceiver){
-		mMessageReceivers.add(messageReceiver);
-	}
-	public void unregisterEventReceiver(EventReceiver messageReceiver){
-		mMessageReceivers.remove(messageReceiver);
-	}
-	
-	private void onMessageReceived(ChatMessage message){
-		for (EventReceiver eventReceiver : mMessageReceivers) {
-			eventReceiver.OnMessageReceived(message);
-		}
-	}
-	
-	private void onDisconnected(){
-		for (EventReceiver eventReceiver : mMessageReceivers) {
-			eventReceiver.OnDisconnected();
-		}
-	}
-	
-	private void onConnected(){
-		for (EventReceiver eventReceiver : mMessageReceivers) {
-			eventReceiver.OnConnected(mIp);
-		}
 	}
 }
