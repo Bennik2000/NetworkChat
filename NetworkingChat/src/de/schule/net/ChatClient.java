@@ -22,10 +22,13 @@ public class ChatClient implements EndpointEventReceiver{
 	
 	
 	public void connectToServer(String ip, int port) throws UnknownHostException, IOException{
+		// Connect to the server
 		Socket socket = new Socket(ip, port);
 		
+		// Create a new EndpointHandler
 		mEndpointHandler = new EndpointHandler(mPacketHandler);
 		
+		// Setup the EndpointHandler
 		mEndpointHandler.registerEventReceiver(this);
 		mEndpointHandler.setupEndpointConnection(socket);
 	}
@@ -36,9 +39,12 @@ public class ChatClient implements EndpointEventReceiver{
 	
 	
 	public void sendMessage(String message){
+		
+		// Create the parameters
 		Map<String, String> parameters = new HashMap<String, String>();
 		parameters.put("message", message);
 		
+		// Send the packet
 		mEndpointHandler.sendPacket("message", parameters);
 	}
 
@@ -52,9 +58,12 @@ public class ChatClient implements EndpointEventReceiver{
 	}
 	
 	public void setUsername(String username){
+		
+		// Create the parameters
 		Map<String, String> parameters = new HashMap<String, String>();
 		parameters.put("username", username);
 		
+		// Send the packet
 		mEndpointHandler.sendPacket("username", parameters);
 	}
 	
@@ -84,7 +93,6 @@ public class ChatClient implements EndpointEventReceiver{
 
 	@Override
 	public void onDataReceived(EndpointHandler handler, String rawData) {
-		// TODO Auto-generated method stub
 		
 	}
 }

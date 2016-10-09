@@ -1,5 +1,8 @@
 package de.schule.net;
 
+/*
+ * Derived EndpointHandler class which contains more information about the client
+ * */
 public class ClientEndpointHandler extends EndpointHandler {
 	private String mUsername;
 	private ChatServer mServer;

@@ -16,10 +16,8 @@ public class EndpointHandler implements Runnable{
 	
 	private Socket mEndpointSocket;
 	private BufferedReader mBufferedReader;
-	private BufferedWriter mBufferedWriter; 
-	
+	private BufferedWriter mBufferedWriter;
 	private PacketHandler mPacketHandler;
-	
 	private Thread mHandlerThread;
 	
 	public List<EndpointEventReceiver> mEventReceivers;
@@ -128,11 +126,17 @@ public class EndpointHandler implements Runnable{
 				
 				// Process the received line
 				if(mPacketHandler != null){
-					String response = mPacketHandler.processPacket(receivedLine, this);
-					
-					// When the packetHandler returned a response packet we send it
-					if(response != null){
-						sendPacket(response);
+					try{
+						String response = mPacketHandler.processPacket(receivedLine, this);
+						
+						// When the packetHandler returned a response packet we send it
+						if(response != null){
+							sendPacket(response);
+						}
+					}
+					catch(Exception e){
+						System.out.println("Internal server error while processing the packet:");
+						e.printStackTrace();
 					}
 				}
 			}
@@ -153,9 +157,16 @@ public class EndpointHandler implements Runnable{
 
 	public void sendPacket(String command, Map<String, String> parameters){
 		// Construct the packet using the packet handler
-		String packet = mPacketHandler.constructPacket(command, parameters, this);
 		
-		sendPacket(packet);
+		try{
+			String packet = mPacketHandler.constructPacket(command, parameters, this);
+			
+			sendPacket(packet);
+		}
+		catch (Exception e) {
+			System.out.println("Error while sending packet:");
+			e.printStackTrace();
+		}
 	}
 	
 	private void sendPacket(String packet){

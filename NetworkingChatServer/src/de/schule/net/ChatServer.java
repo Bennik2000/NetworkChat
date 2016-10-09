@@ -7,6 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/*
+ * The chat server implementation
+ * */
 public class ChatServer implements EndpointEventReceiver, Runnable {
 	public static final int Port = 25552;
 	
@@ -17,6 +20,7 @@ public class ChatServer implements EndpointEventReceiver, Runnable {
 	private List<EndpointHandler> mClientConnections;
 	private JsonPacketHandler mPacketHandler; 
 	
+	
 	public ChatServer(){
 		mPacketHandler = new JsonPacketHandler();
 		mPacketHandler.registerCommandHandler(new MessageCommandHandler());
@@ -25,18 +29,6 @@ public class ChatServer implements EndpointEventReceiver, Runnable {
 		mClientConnections = new ArrayList<>();
 	}
 	
-	
-	@Override
-	public void run() {
-		try {
-			// Start the server
-			listenForConnections();
-		} catch (IOException e) {
-			
-			// When an exception was thrown we shutdown the server
-			shutdownServer();
-		}
-	}
 	
 	/*
 	 * Listens for client connections
@@ -84,6 +76,7 @@ public class ChatServer implements EndpointEventReceiver, Runnable {
 		}
 	}
 
+	
 	/*
 	 * Counts the connected clients
 	 * */
@@ -91,6 +84,10 @@ public class ChatServer implements EndpointEventReceiver, Runnable {
 		return mClientConnections.size();
 	}
 
+	
+	/*
+	 * Sends a packet to all EndpointHandlers excluding the sourceEndpoint
+	 * */
 	public void distributePacket(String command, Map<String, String> parameters, EndpointHandler sourceEndpoint){
 		for (EndpointHandler endpointHandler : mClientConnections) {
 			if(endpointHandler != sourceEndpoint){
@@ -101,24 +98,41 @@ public class ChatServer implements EndpointEventReceiver, Runnable {
 	
 
 	@Override
-	public void onEndpointConnected(EndpointHandler handler) {
-		System.out.println("Connection from " + handler.getEndpointIp());
+	public void run() {
+		try {
+			// Start the server
+			listenForConnections();
+		} catch (IOException e) {
+			
+			// When an exception was thrown we shutdown the server
+			shutdownServer();
+		}
 	}
+	
 
+	@Override
+	public void onEndpointConnected(EndpointHandler handler) {
+		// Print a log message
+		System.out.println("Connection from " + handler.getEndpointIp());
+		
+		// TODO: Distribute a join message
+	}
 
 	@Override
 	public void onEndpointDisconnected(EndpointHandler handler) {
+		// Print a log message 
 		System.out.println("Client with IP " + handler.getEndpointIp() + " disconnected");
 		
 		// Remove the disconnected client
 		if(mIsListening){
 			mClientConnections.remove(handler);
 		}
+		
+		// TODO: Distribute a leave message
 	}
 
 	@Override
 	public void onDataReceived(EndpointHandler handler, String rawData) {
-		// TODO Auto-generated method stub
 		
 	}
 }
