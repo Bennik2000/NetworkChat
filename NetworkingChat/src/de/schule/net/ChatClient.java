@@ -1,10 +1,6 @@
 package de.schule.net;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -12,256 +8,83 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-
-public class ChatClient implements Runnable {
-	private static final int mPort = 25552;
-
-	/*
-	 * Contains the ip of the server
-	 * */
-	private String mIp;
+public class ChatClient implements EndpointEventReceiver{
+	private List<ClientEventReceiver> mClientEventReceivers;
+	private EndpointHandler mEndpointHandler;
+	private JsonPacketHandler mPacketHandler; 
 	
-	/*
-	 * Contains the socked connected to the server
-	 * */
-	private Socket mSocket;
-	
-	/*
-	 * Contains the BufferedWriter connected to the server
-	 * */
-	private BufferedWriter mBufferedWriter;
-
-	/*
-	 * Contains the BufferedReader connected to the server
-	 * */
-	private BufferedReader mBufferedReader;
-	
-	/*
-	 * The handler thread which handles the incoming messages
-	 * */
-	private Thread mHandlerThread;
-	
-	/*
-	 * Indicates whether the client is connected
-	 * */
-	private boolean mConnected;
-	
-	/*
-	 * Holds the username of the client
-	 * */
-	private String mUsername;
-	
-	/*
-	 * Contains the registered receiver
-	 * */
-	private List<EventReceiver> mMessageReceivers;
-	
-	
-	public ChatClient(String ip, String username){
-		mIp = ip;
-		mUsername = username;
-		mMessageReceivers = new ArrayList<>();
+	public ChatClient(){
+		mPacketHandler = new JsonPacketHandler();
+		mPacketHandler.registerCommandHandler(new MessageCommandHandler());
+		
+		mClientEventReceivers = new ArrayList<>();
 	}
 	
-	/*
-	 * Connect to a server
-	 * */
-	public void connectToServer(){
-		try {
-			
-			// Connect to the server
-			mSocket = new Socket(mIp, mPort);
-
-			// Grab the I/O streams
-			mBufferedWriter = new BufferedWriter(new OutputStreamWriter(mSocket.getOutputStream()));
-			mBufferedReader = new BufferedReader(new InputStreamReader(mSocket.getInputStream()));
-
-			mConnected = true;
-
-			// Start the handle thread
-			mHandlerThread  = new Thread(this);
-			mHandlerThread.start();
-
-			onConnected();
-		}
-		catch (UnknownHostException e) { } 
-		catch (IOException e) { }
+	
+	public void connectToServer(String ip, int port) throws UnknownHostException, IOException{
+		Socket socket = new Socket(ip, port);
+		
+		mEndpointHandler = new EndpointHandler(mPacketHandler);
+		
+		mEndpointHandler.registerEventReceiver(this);
+		mEndpointHandler.setupEndpointConnection(socket);
 	}
 	
-	public void closeConnection() {
-		if (!mConnected)
-			return;
-
-		mConnected = false;
-
-		// Try to close the socket
-		if (mSocket != null) {
-			try {
-				mSocket.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-
-			mSocket = null;
-		}
-
-		// Try to close the BufferedReader
-		if (mBufferedReader != null) {
-			try {
-				mBufferedReader.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-
-			mBufferedReader = null;
-		}
-
-		// Try to close the BufferedWriter
-		if (mBufferedWriter != null) {
-			try {
-				mBufferedWriter.close();
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-
-			mBufferedWriter = null;
-		}
-
-		// Try to interrupt the HandlerThread
-		if (mHandlerThread != null) {
-			if (!mHandlerThread.isInterrupted()) {
-				mHandlerThread.interrupt();
-			}
-
-			mHandlerThread = null;
-		}
+	public void disconnectFromServer(){
+		mEndpointHandler.disconnectFromEndpoint();
 	}
+	
+	
+	public void sendMessage(String message){
+		Map<String, String> parameters = new HashMap<String, String>();
+		parameters.put("message", message);
+		
+		mEndpointHandler.sendPacket("message", parameters);
+	}
+
+	
+	public String getServerIp(){
+		return mEndpointHandler.getEndpointIp();
+	}
+
+	public boolean isConnected(){
+		return mEndpointHandler.isConnected();
+	}
+	
+	public void setUsername(String username){
+		Map<String, String> parameters = new HashMap<String, String>();
+		parameters.put("username", username);
+		
+		mEndpointHandler.sendPacket("username", parameters);
+	}
+	
+	
+	public void registerClientEventReceiver(ClientEventReceiver clientEventReceiver){
+		mClientEventReceivers.add(clientEventReceiver);
+	}
+	
+	public void unregisterClientEventReceiver(ClientEventReceiver clientEventReceiver){
+		mClientEventReceivers.remove(clientEventReceiver);
+	}
+
 	
 	@Override
-	public void run() {
-		try {
-			String receivedLine = null;
-
-			Map<String, String> properties = new HashMap<String, String>();
-			properties.put("name", mUsername);
-			
-			sendMessage("username", properties);
-			
-			
-			// Receive all lines
-			while ((receivedLine = mBufferedReader.readLine()) != null && mConnected) {
-				processMessage(receivedLine);
-			}
-
-			// Close the connection when the loop finished
-			closeConnection();
-
-		} catch (IOException e) {
-			
-			// Close the connection when an exception was thrown
-			closeConnection();
-		}
-
-		// Notify that the client disconnected
-		onDisconnected();
-	}
-
-	public void processMessage(String message){
-
-		Gson gson = new Gson();
-		
-		JsonObject jsonObject = gson.fromJson(message, JsonObject.class);
-		JsonElement commandElement = jsonObject.get("command");
-		
-		String command = commandElement.getAsString();
-		
-		System.out.println(message);
-		
-		switch (command) {
-		case "message":
-			JsonElement messageElement = jsonObject.get("message");
-			JsonElement usernameElement = jsonObject.get("username");
-			ChatMessage chatMessage = new ChatMessage();
-			
-			chatMessage.setMessage(messageElement.getAsString());
-			chatMessage.setUsername(usernameElement.getAsString());
-			
-			onMessageReceived(chatMessage);
-			
-		default:
-			break;
-		}
-		
-	}
-	
-	/*
-	 * Sends a message to the server
-	 * */
-	public void sendMessage(ChatMessage message){
-		Map<String, String> properties = new HashMap<String, String>();
-		properties.put("message", message.getMessage());
-		
-		sendMessage("message", properties);
-	}
-	
-	public void sendMessage(String command, Map<String, String> parameters){
-		JsonObject innerObject = new JsonObject();
-		innerObject.addProperty("command", command);
-
-		for (String key : parameters.keySet()) {
-			innerObject.addProperty(key, parameters.get(key));
-		}
-		
-		sendMessage(new Gson().toJson(innerObject));
-	}
-	
-	/*
-	 * Sends a string to the server
-	 * */
-	private void sendMessage(String message){
-		if (!mConnected)
-			return;
-
-		
-		try {
-			// Write a string without newline
-			mBufferedWriter.write(message.replace("\n", ""));
-			
-			// Write a newline
-			mBufferedWriter.write("\n");
-			
-			// Flush to ensure that the line was sent
-			mBufferedWriter.flush();
-		} catch (IOException e) { }
-	}
-	
-	
-	public void registerEventReceiver(EventReceiver messageReceiver){
-		mMessageReceivers.add(messageReceiver);
-	}
-	
-	public void unregisterEventReceiver(EventReceiver messageReceiver){
-		mMessageReceivers.remove(messageReceiver);
-	}
-	
-	private void onMessageReceived(ChatMessage message){
-		for (EventReceiver eventReceiver : mMessageReceivers) {
-			eventReceiver.OnMessageReceived(message);
+	public void onEndpointConnected(EndpointHandler handler) {
+		for (ClientEventReceiver clientEventReceiver : mClientEventReceivers) {
+			clientEventReceiver.onConnected(this);
 		}
 	}
-	
-	private void onDisconnected(){
-		for (EventReceiver eventReceiver : mMessageReceivers) {
-			eventReceiver.OnDisconnected();
+
+	@Override
+	public void onEndpointDisconnected(EndpointHandler handler) {
+		for (ClientEventReceiver clientEventReceiver : mClientEventReceivers) {
+			clientEventReceiver.onDisconnected(this);
 		}
 	}
-	
-	private void onConnected(){
-		for (EventReceiver eventReceiver : mMessageReceivers) {
-			eventReceiver.OnConnected(mIp);
-		}
+
+	@Override
+	public void onDataReceived(EndpointHandler handler, String rawData) {
+		// TODO Auto-generated method stub
+		
 	}
 }

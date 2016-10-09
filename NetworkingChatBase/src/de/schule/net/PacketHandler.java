@@ -1,5 +1,8 @@
 package de.schule.net;
 
+import java.util.Map;
+
 public interface PacketHandler {
-	void processPacket(String rawPacket);
+	String processPacket(String rawPacket, EndpointHandler endpoint);
+	String constructPacket(String command, Map<String, String> parameters, EndpointHandler endpoint);
 }

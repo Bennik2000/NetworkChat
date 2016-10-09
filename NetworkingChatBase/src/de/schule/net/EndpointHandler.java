@@ -10,11 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-
 public class EndpointHandler implements Runnable{
-	
 	private String mEndpointIP;
 	private boolean mConnected;
 	
@@ -39,15 +35,16 @@ public class EndpointHandler implements Runnable{
 		mEndpointIP = mEndpointSocket.getRemoteSocketAddress().toString().substring(1);
 		
 		// Grab the I/O streams
-		mBufferedReader = new BufferedReader(new InputStreamReader(mEndpointSocket.getInputStream()));
-		mBufferedWriter = new BufferedWriter(new OutputStreamWriter(mEndpointSocket.getOutputStream()));
+		mBufferedReader = new BufferedReader(new InputStreamReader(mEndpointSocket.getInputStream(), "UTF-8"));
+		mBufferedWriter = new BufferedWriter(new OutputStreamWriter(mEndpointSocket.getOutputStream(), "UTF-8"));
 
 		mConnected = true;
 		
 		mHandlerThread = new Thread(this);
 		mHandlerThread.start();
+		
+		onClientConnected();
 	}
-	
 	
 	public void disconnectFromEndpoint(){
 		if (!mConnected)
@@ -98,11 +95,13 @@ public class EndpointHandler implements Runnable{
 		}
 	}
 
+	
 	@Override
 	public void run() {
 		listenForIncomingData();
 	}
 
+	
 	public void registerEventReceiver(EndpointEventReceiver receiver) {
 		mEventReceivers.add(receiver);
 	}
@@ -111,6 +110,14 @@ public class EndpointHandler implements Runnable{
 		mEventReceivers.remove(receiver);
 	}
 
+	
+	public String getEndpointIp(){
+		return mEndpointIP;
+	}
+
+	public boolean isConnected(){
+		return mConnected;
+	}
 	
 	private void listenForIncomingData(){
 		try {			
@@ -121,7 +128,12 @@ public class EndpointHandler implements Runnable{
 				
 				// Process the received line
 				if(mPacketHandler != null){
-					mPacketHandler.processPacket(receivedLine);
+					String response = mPacketHandler.processPacket(receivedLine, this);
+					
+					// When the packetHandler returned a response packet we send it
+					if(response != null){
+						sendPacket(response);
+					}
 				}
 			}
 
@@ -139,14 +151,37 @@ public class EndpointHandler implements Runnable{
 	}
 	
 
-	private void sendPackage(String command, Map<String, String> parameters){
-
+	public void sendPacket(String command, Map<String, String> parameters){
+		// Construct the packet using the packet handler
+		String packet = mPacketHandler.constructPacket(command, parameters, this);
+		
+		sendPacket(packet);
 	}
+	
+	private void sendPacket(String packet){
+		try {	
+			// Send the packet
+			mBufferedWriter.write(packet);
+			mBufferedWriter.newLine();
+			mBufferedWriter.flush();
+		} catch (IOException e) {
+			
+			// When an exception was thrown we close the connection
+			disconnectFromEndpoint();
+		}
+	}
+	
 	
 
 	private void onClientDisconnected() {
 		for (EndpointEventReceiver clientEventReceiver : mEventReceivers) {
 			clientEventReceiver.onEndpointDisconnected(this);
+		}
+	}
+
+	private void onClientConnected() {
+		for (EndpointEventReceiver clientEventReceiver : mEventReceivers) {
+			clientEventReceiver.onEndpointConnected(this);
 		}
 	}
 }
