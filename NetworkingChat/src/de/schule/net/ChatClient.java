@@ -11,13 +11,13 @@ import java.util.Map;
 public class ChatClient implements EndpointEventReceiver{
 	private List<ClientEventReceiver> mClientEventReceivers;
 	private EndpointHandler mEndpointHandler;
-	private JsonPacketHandler mPacketHandler; 
+	private JsonPacketHandler mPacketHandler;
 	
 	public ChatClient(){
 		mPacketHandler = new JsonPacketHandler();
-		mPacketHandler.registerCommandHandler(new MessageCommandHandler());
-		mPacketHandler.registerCommandHandler(new JoinCommandHandler());
-		mPacketHandler.registerCommandHandler(new LeaveCommandHandler());
+		mPacketHandler.registerCommandHandler(new MessageCommandHandler(this));
+		mPacketHandler.registerCommandHandler(new JoinCommandHandler(this));
+		mPacketHandler.registerCommandHandler(new LeaveCommandHandler(this));
 		
 		mClientEventReceivers = new ArrayList<>();
 	}
@@ -41,6 +41,14 @@ public class ChatClient implements EndpointEventReceiver{
 	
 	
 	public void sendMessage(String message){
+		if(message.trim().isEmpty()){
+			return;
+		}
+		
+		if(message.equals("/q")){
+			disconnectFromServer();
+			return;
+		}
 		
 		// Create the parameters
 		Map<String, String> parameters = new HashMap<String, String>();
@@ -77,7 +85,25 @@ public class ChatClient implements EndpointEventReceiver{
 	public void unregisterClientEventReceiver(ClientEventReceiver clientEventReceiver){
 		mClientEventReceivers.remove(clientEventReceiver);
 	}
-
+	
+	
+	public void onUserJoined(String user){
+		for (ClientEventReceiver clientEventReceiver : mClientEventReceivers) {
+			clientEventReceiver.onUserJoined(this, user);
+		}
+	}
+	
+	public void onUserLeft(String user){
+		for (ClientEventReceiver clientEventReceiver : mClientEventReceivers) {
+			clientEventReceiver.onUserLeft(this, user);
+		}
+	}
+	
+	public void onMessageReceived(String message, String user){
+		for (ClientEventReceiver clientEventReceiver : mClientEventReceivers) {
+			clientEventReceiver.onMessageReceived(this, message, user);
+		}
+	}
 	
 	@Override
 	public void onEndpointConnected(EndpointHandler handler) {

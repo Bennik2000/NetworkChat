@@ -5,7 +5,12 @@ import java.util.Map;
 import com.google.gson.JsonObject;
 
 public class LeaveCommandHandler implements CommandHandler{
-
+	private ChatClient mClient;
+	
+	public LeaveCommandHandler(ChatClient client){
+		mClient = client;
+	}
+	
 	@Override
 	public String getCommandName() {
 		return "leave";
@@ -17,8 +22,7 @@ public class LeaveCommandHandler implements CommandHandler{
 		// Get the username
 		String username = jsonObject.get("username").getAsString();
 
-		// Print the message
-		System.out.println(username + " disconnected");
+		mClient.onUserLeft(username);
 	
 		return null;
 	}

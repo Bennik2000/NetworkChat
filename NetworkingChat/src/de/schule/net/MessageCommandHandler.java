@@ -5,7 +5,12 @@ import java.util.Map;
 import com.google.gson.JsonObject;
 
 public class MessageCommandHandler implements CommandHandler {
-
+	private ChatClient mClient;
+	
+	public MessageCommandHandler(ChatClient client){
+		mClient = client;
+	}
+	
 	@Override
 	public String getCommandName() {
 		return "message";
@@ -20,9 +25,8 @@ public class MessageCommandHandler implements CommandHandler {
 		// Get the username
 		String username = jsonObject.get("username").getAsString();
 
-		// Print the message
-		System.out.println(username + ": " + message);
-	
+		mClient.onMessageReceived(message, username);
+		
 		return null;
 	}
 }

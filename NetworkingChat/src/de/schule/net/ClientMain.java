@@ -20,16 +20,16 @@ public class ClientMain implements Runnable, ClientEventReceiver {
 			return;
 		}
 		
-		ClientMain mClient = new ClientMain(username);
+		new ClientMain(username);
 		
-		mClient.join();
+		//mClient.join();
 		
-		try {
-			mBufferedReader.close();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		//try {
+		//	mBufferedReader.close();
+		//} catch (IOException e) {
+		//	// TODO Auto-generated catch block
+		//	e.printStackTrace();
+		//}
 	}
 	
 	
@@ -63,9 +63,27 @@ public class ClientMain implements Runnable, ClientEventReceiver {
 	public void onDisconnected(ChatClient client) {
 		System.out.println("Disconnected from server");
 
+		try {
+			mBufferedReader.close();
+		} catch (IOException e) { }
 		mThread.interrupt();
 	}
 
+	@Override
+	public void onUserJoined(ChatClient client, String user) {
+		System.out.println(user + " joined");
+	}
+
+	@Override
+	public void onUserLeft(ChatClient client, String user) {
+		System.out.println(user + " left");
+	}
+
+	@Override
+	public void onMessageReceived(ChatClient client, String message, String user) {
+		System.out.println("Message from " + user + ": " + message);
+	}
+	
 	@Override
 	public void run() {
 		String line;
@@ -78,11 +96,7 @@ public class ClientMain implements Runnable, ClientEventReceiver {
 				}
 			}
 			
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		
-		System.out.println("Scanner closed");
+		} catch (IOException e) { }
 	}
 	
 	public void join(){

@@ -5,7 +5,12 @@ import java.util.Map;
 import com.google.gson.JsonObject;
 
 public class JoinCommandHandler implements CommandHandler{
-
+	private ChatClient mClient;
+	
+	public JoinCommandHandler(ChatClient client){
+		mClient = client;
+	}
+	
 	@Override
 	public String getCommandName() {
 		return "join";
@@ -17,8 +22,7 @@ public class JoinCommandHandler implements CommandHandler{
 		// Get the username
 		String username = jsonObject.get("username").getAsString();
 
-		// Print the message
-		System.out.println(username + " connected");
+		mClient.onUserJoined(username);
 	
 		return null;
 	}
