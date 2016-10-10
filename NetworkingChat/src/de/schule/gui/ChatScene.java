@@ -57,7 +57,7 @@ public class ChatScene extends BorderPane implements ClientEventReceiver{
 		
 		mClient.sendMessage(message);
 		
-		mChatHistory.getItems().add(message);
+		mChatHistory.getItems().add("Du:" + message);
 	}
 
 	@Override
