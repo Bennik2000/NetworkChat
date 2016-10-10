@@ -11,6 +11,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
 
 public class ChatScene extends BorderPane implements ClientEventReceiver{
 	private Stage mStage;
@@ -23,6 +24,14 @@ public class ChatScene extends BorderPane implements ClientEventReceiver{
 		mClient = client;
 		mStage = stage;
 		initializeScene();
+		
+		mStage.setOnCloseRequest(new EventHandler<WindowEvent>() {
+			
+			@Override
+			public void handle(WindowEvent event) {
+				mClient.disconnectFromServer();
+			}
+		});
 	}
 
 	
@@ -57,7 +66,7 @@ public class ChatScene extends BorderPane implements ClientEventReceiver{
 		
 		mClient.sendMessage(message);
 		
-		mChatHistory.getItems().add("Du:" + message);
+		mChatHistory.getItems().add("Du: " + message);
 	}
 
 	@Override
