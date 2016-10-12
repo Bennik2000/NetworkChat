@@ -8,6 +8,7 @@ import javafx.event.EventHandler;
 import javafx.scene.control.Button;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
@@ -48,6 +49,16 @@ public class ChatScene extends BorderPane implements ClientEventReceiver{
 			}
 		});
 		
+		mTextField.setOnKeyTyped(new EventHandler<KeyEvent>() {
+
+			@Override
+			public void handle(KeyEvent event) {
+				if(event.getCharacter().charAt(0) == '\r'){
+					sendMessage();
+				}
+			}
+			
+		});
 
 		HBox sendMessageHBox = new HBox();
 		sendMessageHBox.getChildren().add(mTextField);
@@ -63,6 +74,10 @@ public class ChatScene extends BorderPane implements ClientEventReceiver{
 	private void sendMessage(){
 		String message = mTextField.getText();
 		mTextField.setText("");
+		
+		if(message.isEmpty()) {
+			return;
+		}
 		
 		mClient.sendMessage(message);
 		
