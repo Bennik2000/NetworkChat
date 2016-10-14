@@ -27,22 +27,25 @@ public class ServerMain {
 				
 				if(arguments[0].equals("exit")){
 					break;
-				}
-				if(arguments[0].equals("ban")){
+				} 
+				else if(arguments[0].equals("ban")){
 					if(arguments.length < 2){
 						System.out.println("Too few arguments");
 					}
 					else{
 						server.kickClientIpByName(arguments[1], true);
 					}
-				}
-				if(arguments[0].equals("kick")){
+				} 
+				else if(arguments[0].equals("kick")){
 					if(arguments.length < 2){
 						System.out.println("Too few arguments");
 					}
 					else{
 						server.kickClientIpByName(arguments[1], false);
 					}
+				}
+				else{
+					System.out.println("Command not found");
 				}
 			}
 		}
