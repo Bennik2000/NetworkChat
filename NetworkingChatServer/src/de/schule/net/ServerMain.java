@@ -17,7 +17,35 @@ public class ServerMain {
 		
 		// Wait for user input before shutdown
 		Scanner s = new Scanner(System.in);
-		s.nextLine();
+		
+		while(true){
+			String line = s.nextLine();
+			
+			if(line.startsWith("/")){
+				String command = line.substring(1);
+				String[] arguments = command.split("[ ]+");
+				
+				if(arguments[0].equals("exit")){
+					break;
+				}
+				if(arguments[0].equals("ban")){
+					if(arguments.length < 2){
+						System.out.println("Too few arguments");
+					}
+					else{
+						server.kickClientIpByName(arguments[1], true);
+					}
+				}
+				if(arguments[0].equals("kick")){
+					if(arguments.length < 2){
+						System.out.println("Too few arguments");
+					}
+					else{
+						server.kickClientIpByName(arguments[1], false);
+					}
+				}
+			}
+		}
 		
 		server.shutdownServer();
 		

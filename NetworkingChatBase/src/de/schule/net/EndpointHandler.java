@@ -113,6 +113,10 @@ public class EndpointHandler implements Runnable{
 		return mEndpointIP;
 	}
 
+	public byte[] getEndpointAddress(){
+		return mEndpointSocket.getInetAddress().getAddress();
+	}
+	
 	public boolean isConnected(){
 		return mConnected;
 	}

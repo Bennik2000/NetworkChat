@@ -19,6 +19,8 @@ public class ChatServer implements EndpointEventReceiver, Runnable {
 	private ServerSocket mServerSocket;
 	
 	private List<EndpointHandler> mClientConnections;
+	private List<byte[]> mBannedIps;
+	
 	private JsonPacketHandler mPacketHandler; 
 	
 	
@@ -28,6 +30,7 @@ public class ChatServer implements EndpointEventReceiver, Runnable {
 		mPacketHandler.registerCommandHandler(new UsernameCommandHandler());
 		
 		mClientConnections = new ArrayList<>();
+		mBannedIps = new ArrayList<>();
 	}
 	
 	
@@ -43,6 +46,11 @@ public class ChatServer implements EndpointEventReceiver, Runnable {
 			// Accept the connection
 			Socket clientSocket = mServerSocket.accept();
 			
+			
+			if(isAddressBanned(clientSocket.getInetAddress().getAddress())){
+				clientSocket.close();
+				continue;
+			}
 			
 			// Setup a new client handler to handle the client
 			EndpointHandler connection = new ClientEndpointHandler(mPacketHandler, this);
@@ -97,6 +105,44 @@ public class ChatServer implements EndpointEventReceiver, Runnable {
 		}
 	}
 	
+	/*
+	 * Bans a client by its IP
+	 * */
+	public void kickClientIpByName(String name, boolean ban){
+		List<ClientEndpointHandler> clientsToKick = new ArrayList<>();
+		
+		for (EndpointHandler endpointHandler : mClientConnections) {
+			
+			// When the end point is a ClientEndpointHandler we can go on
+			if (ClientEndpointHandler.class.isInstance(endpointHandler)){
+				ClientEndpointHandler client = (ClientEndpointHandler) endpointHandler;
+			
+				// Check if the username matches
+				if(client.getUsername().equalsIgnoreCase(name)){
+					
+					if(ban){
+						// Add the ip to the list
+						mBannedIps.add(client.getEndpointAddress());
+					}
+					
+					// Add the client to the clientsToKick list
+					clientsToKick.add(client);
+				}
+			}
+		}
+		
+		// Kick the clients
+		for (ClientEndpointHandler clientEndpointHandler : clientsToKick) {
+			kickClient(clientEndpointHandler);
+		}
+	}
+	
+	/*
+	 * Kicks a client
+	 * */
+	public void kickClient(ClientEndpointHandler client){
+		client.disconnectFromEndpoint();
+	}
 
 	@Override
 	public void run() {
@@ -140,5 +186,23 @@ public class ChatServer implements EndpointEventReceiver, Runnable {
 	@Override
 	public void onDataReceived(EndpointHandler handler, String rawData) {
 		
+	}
+
+	
+	private boolean isAddressBanned(byte[] address){
+		boolean isClientBanned = false;
+		byte[] clientAddress = address;
+		
+		for (byte[] bannedIp : mBannedIps) {
+			boolean isEqualAddress = true;
+			for (int i = 0; i < bannedIp.length; i++) {
+				isEqualAddress = isEqualAddress && clientAddress[i] == bannedIp[i];
+			}
+			
+			if(isEqualAddress){
+				isClientBanned = true;
+			}
+		}
+		return isClientBanned;
 	}
 }
